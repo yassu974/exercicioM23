@@ -1,0 +1,80 @@
+name: Run Cypress and Publish Report
+
+on:
+  push:
+    branches: [ "main", "chore/gha-cypress-pages" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # Instalação de dependências do projeto
+      - name: Install deps
+        run: npm ci || npm i
+
+      # Executa Cypress headless (usa seu script cy:run)
+      - name: Run Cypress (headless, mochawesome)
+        uses: cypress-io/github-action@v6
+        with:
+          command: npm run cy:run
+          browser: chrome
+
+      # Consolida o relatório Mochawesome
+      - name: Build Mochawesome HTML
+        run: |
+          npx mochawesome-merge cypress/reports/*.json > cypress/reports/merged.json
+          npx marge cypress/reports/merged.json --reportDir cypress/reports/html --inline true --charts true --reportTitle "Cypress Report"
+
+      # Prepara pasta "public" para o GitHub Pages
+      - name: Prepare artifact for Pages
+        run: |
+          mkdir -p public
+          if [ -d "cypress/reports/html" ]; then
+            cp -r cypress/reports/html/* public/ || true
+          fi
+          # garante index.html
+          if [ ! -f public/index.html ]; then
+            echo "<h1>Cypress Report</h1><p>Relatório não encontrado.</p>" > public/index.html
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  # Por padrão, vamos publicar da MAIN.
+  # Se quiser publicar da branch de teste, ajuste o Environment (github-pages) para permitir a branch
+  # ou remova a condição abaixo (como você fez no M24).
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
