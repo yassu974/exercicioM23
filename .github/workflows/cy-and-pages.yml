@@ -2,7 +2,7 @@ name: Run Cypress and Publish Report
 
 on:
   push:
-    branches: [ "main", "chore/gha-cypress-pages" ]
+    branches: [ "main", "chore/gha-cypress-pages-1" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
