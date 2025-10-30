@@ -2,9 +2,8 @@ name: Run Cypress and Publish Report
 
 on:
   push:
-    branches: [ "main", "chore/gha-cypress-pages", "chore/gha-cypress-pages-1" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - '**'
   workflow_dispatch:
 
 permissions:
@@ -27,55 +26,46 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci || npm i
 
-      - name: Run Cypress (headless Chrome) -> Mochawesome JSON
+      - name: Run Cypress (headless chrome)
         continue-on-error: true
-        run: |
-          npx cypress run --browser chrome --headless \
-            --reporter mochawesome \
-            --reporter-options reportDir=cypress/reports,reportFilename=[name],overwrite=false,html=false,json=true
+        run: npx cypress run --browser chrome --headless
 
-      - name: Merge Mochawesome JSON
-        if: ${{ always() }}
+      - name: Merge mochawesome JSON
         run: |
-          mkdir -p cypress/reports
-          npx mochawesome-merge "cypress/reports/**/*.json" > cypress/reports/merged.json || echo "{}" > cypress/reports/merged.json
+          npx mochawesome-merge 'cypress/reports/*.json' > cypress/reports/merged.json || true
 
       - name: Generate HTML report
-        if: ${{ always() }}
         run: |
-          mkdir -p cypress/reports/html
           npx marge cypress/reports/merged.json \
             --reportDir cypress/reports/html \
-            --reportTitle "Cypress Report" \
-            --inline true --charts true \
-            || echo "<h1>Cypress Report</h1><p>Falha ao gerar o relatório HTML. Verifique os artefatos.</p>" > cypress/reports/html/index.html
+            --inline true --charts true || true
 
-      - name: Prepare site for Pages
-        if: ${{ always() }}
+      - name: Prepare Pages artifact
         run: |
           mkdir -p public
-          cp -r cypress/reports/html/* public/ || true
-          # Garante um index.html
+          if [ -d "cypress/reports/html" ]; then
+            cp -r cypress/reports/html/* public/ || true
+          fi
+          # fallback para garantir index.html
           if [ ! -f public/index.html ]; then
-            echo "<h1>Cypress Report</h1><p>Nenhum relatório disponível.</p>" > public/index.html
+            echo "<h1>Cypress Report</h1><p>Relatório não encontrado. Verifique os passos anteriores.</p>" > public/index.html
           fi
 
       - name: Upload Pages artifact
-        if: ${{ always() }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
