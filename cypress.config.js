@@ -1,6 +1,8 @@
 const { defineConfig } = require('cypress');
 
 module.exports = defineConfig({
+  projectId: "bonj2g",
+
   reporter: 'cypress-mochawesome-reporter',
   reporterOptions: {
     reportDir: 'cypress/reports/html',
@@ -11,6 +13,7 @@ module.exports = defineConfig({
     overwrite: false,
     saveAllAttempts: false,
   },
+
   e2e: {
     baseUrl: 'http://lojaebac.ebaconline.art.br/',
     setupNodeEvents(on, config) {
@@ -20,4 +23,4 @@ module.exports = defineConfig({
     screenshotsFolder: 'cypress/reports/screenshots',
     videosFolder: 'cypress/reports/videos',
   },
-});
+})
